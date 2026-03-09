@@ -1,0 +1,27 @@
+{
+  "name": "project-guochenwei",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@line/bot-sdk": "^10.6.0",
+    "@prisma/client": "^6.19.2",
+    "next": "^16.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "resend": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "@types/react": "19.2.14",
+    "prisma": "^6.19.2",
+    "typescript": "^5.9.3"
+  }
+}
