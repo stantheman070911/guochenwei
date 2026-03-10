@@ -2,7 +2,7 @@
 
 import { UserStatus } from "@prisma/client";
 import { getUserByLineId } from "../../db/user";
-import { pushMessage } from "../reply";
+import { sendLineMessage } from "../reply";
 
 // ---------------------------------------------------------------------------
 // Response strings (no inline magic strings)
@@ -29,20 +29,20 @@ const MSG_UNKNOWN_USER = (appUrl: string) =>
  *   PENDING → remind them to send activation code
  *   unknown → point to registration page
  */
-export async function handleFollow(lineUserId: string): Promise<void> {
+export async function handleFollow(lineUserId: string, replyToken?: string): Promise<void> {
   const user = await getUserByLineId(lineUserId);
 
   if (user && user.status === UserStatus.ACTIVE) {
-    await pushMessage(lineUserId, MSG_WELCOME_BACK);
+    await sendLineMessage(lineUserId, MSG_WELCOME_BACK, replyToken);
     return;
   }
 
   if (user && user.status === UserStatus.PENDING) {
-    await pushMessage(lineUserId, MSG_PENDING_REMINDER);
+    await sendLineMessage(lineUserId, MSG_PENDING_REMINDER, replyToken);
     return;
   }
 
   // Unknown user — not in our DB at all.
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-  await pushMessage(lineUserId, MSG_UNKNOWN_USER(appUrl));
+  await sendLineMessage(lineUserId, MSG_UNKNOWN_USER(appUrl), replyToken);
 }

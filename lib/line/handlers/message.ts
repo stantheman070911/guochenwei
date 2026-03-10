@@ -4,7 +4,7 @@ import { UserStatus } from "@prisma/client";
 import { getUserByLineId } from "../../db/user";
 import { validateCode } from "../../auth/validate-code";
 import { chat } from "../../claude/chat";
-import { pushMessage } from "../reply";
+import { sendLineMessage } from "../reply";
 
 // ---------------------------------------------------------------------------
 // Response strings (no inline magic strings)
@@ -39,14 +39,15 @@ const MSG_ACTIVATION_EXPIRED =
  */
 export async function handleMessage(
   lineUserId: string,
-  text: string
+  text: string,
+  replyToken?: string
 ): Promise<void> {
   const user = await getUserByLineId(lineUserId);
 
   // ── Active user — hand off to Claude ─────────────────────────────────────
   if (user?.status === UserStatus.ACTIVE) {
     const reply = await chat(user.id, text);
-    await pushMessage(lineUserId, reply);
+    await sendLineMessage(lineUserId, reply, replyToken);
     return;
   }
 
@@ -60,13 +61,13 @@ export async function handleMessage(
     const result = await validateCode(trimmed, lineUserId);
 
     if (result.valid) {
-      await pushMessage(lineUserId, MSG_ACTIVATION_SUCCESS);
+      await sendLineMessage(lineUserId, MSG_ACTIVATION_SUCCESS, replyToken);
       return;
     }
 
     // Code was invalid — give context-specific feedback
     if (result.error === "EXPIRED") {
-      await pushMessage(lineUserId, MSG_ACTIVATION_EXPIRED);
+      await sendLineMessage(lineUserId, MSG_ACTIVATION_EXPIRED, replyToken);
       return;
     }
 
@@ -74,12 +75,12 @@ export async function handleMessage(
     // For unknown users (NOT_FOUND), prompt them to register on the website.
     if (user) {
       // User exists but PENDING — they sent something that isn't a valid code
-      await pushMessage(lineUserId, MSG_ACTIVATION_INVALID);
+      await sendLineMessage(lineUserId, MSG_ACTIVATION_INVALID, replyToken);
       return;
     }
   }
 
   // ── Truly unknown user — not in our DB at all ─────────────────────────────
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-  await pushMessage(lineUserId, MSG_NOT_REGISTERED(appUrl));
+  await sendLineMessage(lineUserId, MSG_NOT_REGISTERED(appUrl), replyToken);
 }

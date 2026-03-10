@@ -16,6 +16,7 @@ import { EVENT_TYPE_MESSAGE, EVENT_TYPE_FOLLOW } from "@/constants/line";
 
 interface LineEvent {
   type: string;
+  replyToken?: string;
   source?: { type: string; userId?: string };
   message?: { type: string; text?: string };
 }
@@ -32,6 +33,7 @@ async function processEvents(events: LineEvent[]): Promise<void> {
   const results = await Promise.allSettled(
     events.map((event) => {
       const lineUserId = event.source?.userId;
+      const token = event.replyToken;
       if (!lineUserId) {
         console.log("[webhook] Skipping event with no userId:", event.type);
         return;
@@ -43,14 +45,14 @@ async function processEvents(events: LineEvent[]): Promise<void> {
         event.message.text
       ) {
         console.log(
-          `[webhook] → handleMessage(${lineUserId}, "${event.message.text}")`
+          `[webhook] → handleMessage(${lineUserId}, "${event.message.text}", token=${!!token})`
         );
-        return handleMessage(lineUserId, event.message.text);
+        return handleMessage(lineUserId, event.message.text, token);
       }
 
       if (event.type === EVENT_TYPE_FOLLOW) {
-        console.log(`[webhook] → handleFollow(${lineUserId})`);
-        return handleFollow(lineUserId);
+        console.log(`[webhook] → handleFollow(${lineUserId}, token=${!!token})`);
+        return handleFollow(lineUserId, token);
       }
 
       console.log(`[webhook] Ignoring event type: ${event.type}`);
