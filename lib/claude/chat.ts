@@ -4,7 +4,7 @@ import { ConversationRole } from "@prisma/client";
 import { CLAUDE_MODEL, MAX_TOKENS } from "../../constants/claude";
 import { getActiveGoals } from "../db/goal";
 import { getRecentMessages, saveMessage } from "../db/conversation";
-import { anthropic } from "./client";
+import { getAnthropic } from "./client";
 import { buildSystemPrompt } from "./system-prompt";
 
 const FALLBACK_REPLY = "我在想事情，等一下再說。";
@@ -44,7 +44,7 @@ export async function chat(
   // 4. Call Claude — isolate the API call so we can catch failures cleanly.
   let assistantReply: string;
   try {
-    const response = await anthropic.messages.create({
+    const response = await getAnthropic().messages.create({
       model: CLAUDE_MODEL,
       max_tokens: MAX_TOKENS,
       system: systemPrompt,

@@ -1,9 +1,11 @@
-// Root layout — sets HTML metadata, loads global fonts, wraps children with providers
-// TODO: add Tailwind globals, fonts, and metadata when UI layer is built
+// Root layout — sets HTML metadata, imports Tailwind globals
 
-export const metadata = {
-  title: "郭陳維",
-  description: "LINE AI 問責管家",
+import type { Metadata } from "next";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "郭陳維 — AI 問責管家",
+  description: "LINE 上的 AI 問責夥伴，用嚴厲方式督促你完成目標。",
 };
 
 export default function RootLayout({
@@ -13,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-Hant">
-      <body>{children}</body>
+      <body className="min-h-screen antialiased">{children}</body>
     </html>
   );
 }

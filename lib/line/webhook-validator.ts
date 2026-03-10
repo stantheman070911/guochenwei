@@ -2,11 +2,14 @@
 
 import { createHmac, timingSafeEqual } from "crypto";
 
-const channelSecret = process.env.LINE_CHANNEL_SECRET;
-if (!channelSecret) {
-  throw new Error(
-    "Missing environment variable: LINE_CHANNEL_SECRET must be set before starting the server."
-  );
+function getChannelSecret(): string {
+  const secret = process.env.LINE_CHANNEL_SECRET;
+  if (!secret) {
+    throw new Error(
+      "Missing environment variable: LINE_CHANNEL_SECRET must be set before starting the server."
+    );
+  }
+  return secret;
 }
 
 /**
@@ -23,7 +26,7 @@ export function validateSignature(
   rawBody: string,
   signature: string
 ): boolean {
-  const digest = createHmac("sha256", channelSecret!)
+  const digest = createHmac("sha256", getChannelSecret())
     .update(rawBody)
     .digest("base64");
 

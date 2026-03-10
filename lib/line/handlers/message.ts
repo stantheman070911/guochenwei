@@ -31,11 +31,11 @@ const MSG_ACTIVATION_EXPIRED =
  *
  * Flow:
  *   1. Look up user by LINE user ID.
- *   2. Not found → send registration prompt.
+ *   2. ACTIVE   → hand off to Claude chat.
  *   3. PENDING  → try to validate text as activation code.
- *                  Success → activate + welcome message.
- *                  Failure → error message.
- *   4. ACTIVE   → call chat() and push the AI reply.
+ *   4. Not found → try text as activation code (line_user_id isn't linked yet
+ *      at this stage, so the user won't be found by LINE ID even if they
+ *      registered on the website). If the code is invalid, prompt to register.
  */
 export async function handleMessage(
   lineUserId: string,
@@ -43,32 +43,43 @@ export async function handleMessage(
 ): Promise<void> {
   const user = await getUserByLineId(lineUserId);
 
-  // ── Not registered ────────────────────────────────────────────────────────
-  if (!user) {
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-    await pushMessage(lineUserId, MSG_NOT_REGISTERED(appUrl));
+  // ── Active user — hand off to Claude ─────────────────────────────────────
+  if (user?.status === UserStatus.ACTIVE) {
+    const reply = await chat(user.id, text);
+    await pushMessage(lineUserId, reply);
     return;
   }
 
-  // ── Pending activation ────────────────────────────────────────────────────
-  if (user.status === UserStatus.PENDING) {
-    const result = await validateCode(text.trim(), lineUserId);
+  // ── PENDING or unknown user — try the message as an activation code ──────
+  // This covers both cases:
+  //   a) User found as PENDING (line_user_id already linked from a previous attempt)
+  //   b) User NOT found by LINE ID (registered on web but line_user_id is still null)
+  // In both cases, validateCode will link the LINE ID and activate the user.
+  const trimmed = text.trim();
+  if (trimmed.length > 0) {
+    const result = await validateCode(trimmed, lineUserId);
 
     if (result.valid) {
       await pushMessage(lineUserId, MSG_ACTIVATION_SUCCESS);
       return;
     }
 
-    // Give slightly more specific feedback for expired codes.
-    const reply =
-      result.error === "EXPIRED"
-        ? MSG_ACTIVATION_EXPIRED
-        : MSG_ACTIVATION_INVALID;
-    await pushMessage(lineUserId, reply);
-    return;
+    // Code was invalid — give context-specific feedback
+    if (result.error === "EXPIRED") {
+      await pushMessage(lineUserId, MSG_ACTIVATION_EXPIRED);
+      return;
+    }
+
+    // For PENDING users, any non-code text gets the "invalid code" response.
+    // For unknown users (NOT_FOUND), prompt them to register on the website.
+    if (user) {
+      // User exists but PENDING — they sent something that isn't a valid code
+      await pushMessage(lineUserId, MSG_ACTIVATION_INVALID);
+      return;
+    }
   }
 
-  // ── Active user — hand off to Claude ─────────────────────────────────────
-  const reply = await chat(user.id, text);
-  await pushMessage(lineUserId, reply);
+  // ── Truly unknown user — not in our DB at all ─────────────────────────────
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  await pushMessage(lineUserId, MSG_NOT_REGISTERED(appUrl));
 }

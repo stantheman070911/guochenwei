@@ -1,11 +1,22 @@
 // Landing / registration page — renders the RegisterForm for new users to sign up
-// TODO: replace with full registration form when UI layer is built
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { RegisterForm } from "@/components/register-form";
 
 export default function HomePage() {
   return (
-    <main>
-      <h1>郭陳維</h1>
-      <p>註冊頁面建置中</p>
+    <main className="flex min-h-screen items-center justify-center px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl">郭陳維</CardTitle>
+          <CardDescription>
+            你的 AI 問責管家。註冊後，在 LINE 上啟動。
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RegisterForm />
+        </CardContent>
+      </Card>
     </main>
   );
 }

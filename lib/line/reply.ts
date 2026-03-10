@@ -1,6 +1,6 @@
 // Helper — wraps LINE client replyMessage with typed parameters and error handling
 
-import { lineClient } from "./client";
+import { getLineClient } from "./client";
 
 /**
  * Push a plain-text message to a LINE user.
@@ -16,7 +16,7 @@ export async function pushMessage(
   text: string
 ): Promise<void> {
   try {
-    await lineClient.pushMessage({
+    await getLineClient().pushMessage({
       to: lineUserId,
       messages: [{ type: "text", text }],
     });

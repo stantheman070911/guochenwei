@@ -1,10 +1,15 @@
 // Next.js middleware — protects /dashboard routes, redirects unauthenticated users to /
-// TODO: implement auth guard when dashboard pages are built
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export function middleware(_request: NextRequest) {
+export function middleware(request: NextRequest) {
+  const userId = request.cookies.get("userId")?.value;
+
+  if (!userId) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
   return NextResponse.next();
 }
 

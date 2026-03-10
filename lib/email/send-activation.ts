@@ -1,6 +1,6 @@
 // Sends the activation code email via Resend — returns a result object, never throws
 
-import { resend } from "./resend";
+import { getResend } from "./resend";
 import { buildActivationEmail } from "./templates/activation";
 
 // ---------------------------------------------------------------------------
@@ -43,7 +43,7 @@ export async function sendActivationEmail(params: {
   });
 
   try {
-    await resend.emails.send({
+    await getResend().emails.send({
       from: fromEmail,
       to: params.email,
       subject,
