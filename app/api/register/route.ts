@@ -42,6 +42,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (trimmedName.length > 50) {
+    return NextResponse.json<ApiError>(
+      { error: "Name cannot exceed 50 characters" },
+      { status: 400 }
+    );
+  }
+
+  if (normalizedEmail.length > 255) {
+    return NextResponse.json<ApiError>(
+      { error: "Email cannot exceed 255 characters" },
+      { status: 400 }
+    );
+  }
+
   if (!EMAIL_REGEX.test(normalizedEmail)) {
     return NextResponse.json<ApiError>(
       { error: "Invalid email format" },

@@ -22,6 +22,9 @@ const MSG_ACTIVATION_INVALID =
 const MSG_ACTIVATION_EXPIRED =
   "碼過期了，去網站重拿一個。";
 
+const MSG_ERROR =
+  "靠北，好像壞掉了，等一下再試。";
+
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
@@ -46,8 +49,13 @@ export async function handleMessage(
 
   // ── Active user — hand off to Claude ─────────────────────────────────────
   if (user?.status === UserStatus.ACTIVE) {
-    const reply = await chat(user.id, text);
-    await sendLineMessage(lineUserId, reply, replyToken);
+    try {
+      const reply = await chat(user.id, text);
+      await sendLineMessage(lineUserId, reply, replyToken);
+    } catch (err) {
+      console.error("[handleMessage] chat error:", err);
+      await sendLineMessage(lineUserId, MSG_ERROR, replyToken);
+    }
     return;
   }
 
@@ -58,24 +66,30 @@ export async function handleMessage(
   // In both cases, validateCode will link the LINE ID and activate the user.
   const trimmed = text.trim();
   if (trimmed.length > 0) {
-    const result = await validateCode(trimmed, lineUserId);
+    try {
+      const result = await validateCode(trimmed, lineUserId);
 
-    if (result.valid) {
-      await sendLineMessage(lineUserId, MSG_ACTIVATION_SUCCESS, replyToken);
-      return;
-    }
+      if (result.valid) {
+        await sendLineMessage(lineUserId, MSG_ACTIVATION_SUCCESS, replyToken);
+        return;
+      }
 
-    // Code was invalid — give context-specific feedback
-    if (result.error === "EXPIRED") {
-      await sendLineMessage(lineUserId, MSG_ACTIVATION_EXPIRED, replyToken);
-      return;
-    }
+      // Code was invalid — give context-specific feedback
+      if (result.error === "EXPIRED") {
+        await sendLineMessage(lineUserId, MSG_ACTIVATION_EXPIRED, replyToken);
+        return;
+      }
 
-    // For PENDING users, any non-code text gets the "invalid code" response.
-    // For unknown users (NOT_FOUND), prompt them to register on the website.
-    if (user) {
-      // User exists but PENDING — they sent something that isn't a valid code
-      await sendLineMessage(lineUserId, MSG_ACTIVATION_INVALID, replyToken);
+      // For PENDING users, any non-code text gets the "invalid code" response.
+      // For unknown users (NOT_FOUND), prompt them to register on the website.
+      if (user) {
+        // User exists but PENDING — they sent something that isn't a valid code
+        await sendLineMessage(lineUserId, MSG_ACTIVATION_INVALID, replyToken);
+        return;
+      }
+    } catch (err) {
+      console.error("[handleMessage] validateCode error:", err);
+      await sendLineMessage(lineUserId, MSG_ERROR, replyToken);
       return;
     }
   }

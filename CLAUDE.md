@@ -6,7 +6,7 @@ Read this entire file before writing or modifying any code. After reading this f
 
 ## Project
 
-LINE Official Account chatbot powered by Claude AI (郭陳維AI project).
+LINE Official Account chatbot powered by Claude AI (郭寶 AI project).
 
 | Key | Value |
 |-----|-------|
@@ -54,35 +54,25 @@ prisma/        → schema.prisma, seed.ts
 |-------|-------|-------|
 | **Database** | `lib/db/prisma.ts`, `user.ts`, `code.ts`, `conversation.ts`, `goal.ts` | 4 models (User, ActivationCode, Goal, Conversation), globalThis singleton |
 | **Auth** | `lib/auth/generate-code.ts`, `validate-code.ts` | 8-char crypto code, discriminated union validation |
-| **Claude AI** | `lib/claude/client.ts`, `system-prompt.ts`, `chat.ts` | Singleton client, goal-injected prompt, parallel DB fetches, fallback on API error |
-| **LINE** | `lib/line/client.ts`, `webhook-validator.ts`, `reply.ts`, `handlers/follow.ts`, `handlers/message.ts` | Singleton client, HMAC-SHA256 timing-safe validation, state-machine handlers |
+| **Claude AI** | `lib/claude/client.ts`, `system-prompt.ts`, `chat.ts` | Singleton client, goal-injected prompt with real-time clock, Tool Use loop for goal CRUD, parallel DB fetches, fallback on API error |
+| **LINE** | `lib/line/client.ts`, `webhook-validator.ts`, `reply.ts`, `handlers/follow.ts`, `handlers/message.ts` | Singleton client, HMAC-SHA256 timing-safe validation, Reply API first with Push fallback, state-machine handlers |
 | **Email** | `lib/email/resend.ts`, `templates/activation.ts`, `send-activation.ts` | Singleton client, plain HTML template (Chinese), never-throw send helper |
 | **Types** | `types/api.ts` | `RegisterRequest`, `RegisterResponse`, `ApiError` |
 | **Constants** | `constants/claude.ts`, `line.ts`, `auth.ts` | Model config, event types, code TTL |
 | **Config** | `next.config.ts`, `tsconfig.json`, `prisma/schema.prisma` | Minimal Next.js config, strict TS, 4-model Prisma schema |
 
-### Next: API Routes (the assembly layer)
+| **API Routes** | `app/api/register/route.ts`, `line/webhook/route.ts`, `verify-code/route.ts` | Registration, webhook dispatch with `after()`, code verification |
+| **Cron** | `app/api/cron/reminders/route.ts`, `vercel.json` | Daily proactive goal reminders via Push API with conversation history context, CRON_SECRET auth |
+| **UI** | `app/` pages, `components/` | Landing, registration, activation, dashboard with goal display |
 
-These stub routes return 501 and need full implementation:
-
-| Route | File | What it does |
-|-------|------|-------------|
-| `POST /api/register` | `app/api/register/route.ts` | Validate body → `createUser` → `generateCode` → `createCode` → `sendActivationEmail` → return code |
-| `POST /api/line/webhook` | `app/api/line/webhook/route.ts` | Validate LINE signature (raw body) → parse events → dispatch to `handleMessage` / `handleFollow` |
-| `POST /api/verify-code` | `app/api/verify-code/route.ts` | Check code exists, unused, not expired (for frontend use) |
-
-**Dependencies available:** All `lib/` functions these routes need are implemented. Import from `lib/db/`, `lib/auth/`, `lib/email/`, `lib/line/`, `types/api`, `constants/auth`.
-
-### After API Routes
+### Remaining Work
 
 | Layer | Status |
 |-------|--------|
-| UI pages (layout, landing, activate, dashboard) | Minimal scaffolding in place, needs full implementation |
-| Components (`register-form.tsx`, `code-display.tsx`) | Stub only |
-| Middleware (auth guard for /dashboard) | Passthrough stub, needs auth logic |
-| Tailwind + shadcn/ui | Not configured yet (`tailwind.config.ts` is stub) |
+| Middleware (auth guard for /dashboard) | proxy.ts has auth logic |
 | Prisma seed script | Stub only |
-| ESLint config | Not yet added (Next.js will auto-setup on `npm run lint`) |
+| Rate limiting | Not implemented yet |
+| Idempotency (webhook dedup) | Not implemented yet |
 
 ---
 
@@ -129,6 +119,8 @@ These cause real, hard-to-debug failures. Memorize them.
 | 4 | **Supabase pooled vs direct URL** | `DATABASE_URL` = pooled (port 6543, runtime). `DIRECT_URL` = direct (port 5432, migrations only). Swapping them breaks things silently. |
 | 5 | **Vercel limits** | Hobby tier: 10s timeout, 4.5MB body. LINE media forwarded to Claude must respect these. |
 | 6 | **shadcn/ui components are editable copies** | Generated via `npx shadcn-ui add <name>`. Edit directly, but don't regenerate without warning — local changes get overwritten. |
+| 7 | **Claude Tool Use requires a result loop** | When `stop_reason === "tool_use"`, you must execute the tool, append `tool_result` to messages, and call the API again. Without this, Claude may not produce a text reply. See `chat.ts` for the canonical pattern. |
+| 8 | **LINE Reply API tokens expire quickly** | Reply tokens are only valid for a short window after the webhook event. Always fall back to Push API on failure. See `sendLineMessage()` in `reply.ts`. |
 
 ---
 
@@ -144,6 +136,7 @@ These cause real, hard-to-debug failures. Memorize them.
 | `RESEND_API_KEY` | Yes | Email sending |
 | `RESEND_FROM_EMAIL` | Yes | Sender address |
 | `NEXT_PUBLIC_APP_URL` | Yes | Base URL for email links |
+| `CRON_SECRET` | Yes | Vercel Cron job auth (`Authorization: Bearer <secret>`) |
 | `ACTIVATION_CODE_TTL_HOURS` | No | Code expiry, default `24` |
 
 ---

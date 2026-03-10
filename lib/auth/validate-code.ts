@@ -55,12 +55,35 @@ export async function validateCode(
     return { valid: false, error: "EXPIRED" };
   }
 
-  // Consume the code and activate the user in parallel — both must succeed.
-  await Promise.all([
-    markCodeUsed(record.id),
-    linkLineId(record.user_id, lineUserId),
-    activateUser(record.user_id),
-  ]);
+  // Use a transaction to ensure we don't activate the same code twice concurrently.
+  const txResult = await import("../db/prisma").then((m) => m.prisma.$transaction(async (tx) => {
+    // Re-check the code inside the transaction using a read-lock or just checking state
+    const freshRecord = await tx.activationCode.findUnique({
+      where: { id: record.id },
+    });
+
+    if (!freshRecord || freshRecord.used) {
+      return { valid: false, error: "USED" as const };
+    }
+
+    // Mark code as used
+    await tx.activationCode.update({
+      where: { id: record.id },
+      data: { used: true },
+    });
+
+    // Update user link & status
+    await tx.user.update({
+      where: { id: record.user_id },
+      data: { line_user_id: lineUserId, status: "ACTIVE" },
+    });
+
+    return { valid: true };
+  }));
+
+  if (!txResult.valid) {
+    return { valid: false, error: txResult.error as ValidationError };
+  }
 
   return { valid: true, userId: record.user_id };
 }
