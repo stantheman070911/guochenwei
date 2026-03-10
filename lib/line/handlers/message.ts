@@ -11,16 +11,16 @@ import { pushMessage } from "../reply";
 // ---------------------------------------------------------------------------
 
 const MSG_NOT_REGISTERED = (appUrl: string) =>
-  `你還沒在我們系統裡。去這裡註冊：${appUrl}`;
+  `你誰啊。先去網站註冊：${appUrl}`;
 
 const MSG_ACTIVATION_SUCCESS =
-  "好，你被我盯上了。說說你要做什麼。";
+  "好了 啊所以你要幹嘛。";
 
 const MSG_ACTIVATION_INVALID =
-  "這什麼鬼碼，去網站重新拿。";
+  "這什麼懶趴，去網站重拿。";
 
 const MSG_ACTIVATION_EXPIRED =
-  "碼過期了，去網站重新拿一個。";
+  "碼過期了，去網站重拿一個。";
 
 // ---------------------------------------------------------------------------
 // Handler

@@ -30,20 +30,20 @@ export function buildActivationEmail(params: ActivationEmailParams): {
 } {
   const { name, code, appUrl } = params;
 
-  const subject = "你的郭陳維啟動碼";
+  const subject = "你的郭寶啟動碼";
 
   const html = `<!DOCTYPE html>
 <html lang="zh-Hant">
 <head><meta charset="utf-8" /></head>
 <body style="font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #1a1a1a;">
   <h2 style="margin-bottom: 8px;">${name}，你的啟動碼在這</h2>
-  <p style="margin-bottom: 24px; color: #555;">把這組碼傳給 LINE 上的郭陳維，他才會理你。</p>
+  <p style="margin-bottom: 24px; color: #555;">把這組碼傳給 LINE 上的郭寶，他才會理你。</p>
   <div style="background: #f5f5f5; border-radius: 8px; padding: 20px; text-align: center; margin-bottom: 24px;">
     <span style="font-size: 32px; font-weight: bold; letter-spacing: 4px; font-family: monospace;">${code}</span>
   </div>
   <p style="color: #555; font-size: 14px;">步驟：</p>
   <ol style="color: #555; font-size: 14px; padding-left: 20px;">
-    <li>打開 LINE，找到「郭陳維」</li>
+    <li>打開 LINE，找到「郭寶」</li>
     <li>把上面那串碼直接傳給他</li>
     <li>等他確認，你就可以開始了</li>
   </ol>

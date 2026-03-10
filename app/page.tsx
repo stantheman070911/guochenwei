@@ -8,9 +8,9 @@ export default function HomePage() {
     <main className="flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl">郭陳維</CardTitle>
+          <CardTitle className="text-3xl">郭寶</CardTitle>
           <CardDescription>
-            你的 AI 問責管家。註冊後，在 LINE 上啟動。
+            你的 AI 問責夥伴。註冊後，在 LINE 上啟動。
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -7,7 +7,7 @@ import { getRecentMessages, saveMessage } from "../db/conversation";
 import { getAnthropic } from "./client";
 import { buildSystemPrompt } from "./system-prompt";
 
-const FALLBACK_REPLY = "我在想事情，等一下再說。";
+const FALLBACK_REPLY = "吵死了，狗叫什麼。";
 
 /**
  * Send a user message to Claude and return the assistant reply.
