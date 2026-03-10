@@ -1,5 +1,5 @@
-# 郭陳維 — Personal AI 管家 (MVP Spec v2)
-郭陳維是一個存在於 LINE 對話中的 Personal AI。
+# 郭寶 — Personal AI 管家 (MVP Spec v2)
+郭寶是一個存在於 LINE 對話中的 Personal AI。
 當它了解你的目標後，它會用強勢、嚴厲的方式督促你完成目標，並幫你組織生活。
 ## 核心概念
 - AI accountability partner
@@ -17,9 +17,9 @@ User → Registration Website → Supabase (PostgreSQL)
                                     ↓
                      LINE Webhook → Next.js API Route
                                     ↓
-                              Claude API (Sonnet)
+                              Claude API (Haiku)
                                     ↓
-                           LINE Push Message → User
+                           LINE Reply/Push Message → User
 ```
 ### 三大模組
 | 模組 | 職責 |
@@ -61,10 +61,11 @@ User → Registration Website → Supabase (PostgreSQL)
 2. 查詢 `line_user_id` → 確認 `user.status = active`
 3. **立即回 200 給 LINE**（避免 webhook timeout）
 4. 組裝 context：system prompt + 使用者目標摘要 + 最近 N 條對話
-5. 呼叫 Claude API
-6. 用 LINE **Push Message API** 回傳（不依賴 reply token 時效）
-7. 儲存本輪對話（user message + assistant reply）
-8. 若 Claude 回覆中包含新目標或目標更新 → 更新 `goals` table
+5. 呼叫 Claude API（含 Tool Use：`manage_user_goal`）
+6. 若 Claude 呼叫工具 → 執行工具 → 回傳 `tool_result` → 再次呼叫 Claude 取得最終回覆
+7. 用 LINE **Reply Message API** 回傳（免費）；若 token 過期則自動降級為 **Push Message API**
+8. 儲存本輪對話（user message + assistant reply）
+9. 目標變更由 Claude Tool Use 自動處理（create / update / complete / abandon）
 ### Flow 4：未啟動用戶
 - Bot 回覆：「先去網站拿啟動碼。」+ 附上註冊網站連結
 ### Flow 5：主動提醒（Scheduled Push）
@@ -157,12 +158,12 @@ LINE 可能重送同一個 webhook event。處理方式：
 假設：50 個早期用戶，每人每天平均 10 則對話
 | 項目 | 估算 |
 |------|------|
-| Claude API | ~500 次/日 × ~2K tokens/次 ≈ 1M tokens/日。Sonnet 約 $3/M input + $15/M output → 約 **$15–25/月** |
+| Claude API | ~500 次/日 × ~2K tokens/次 ≈ 1M tokens/日。Haiku 約 $1/M input + $5/M output → 約 **$3–8/月** |
 | Vercel | Free tier（Hobby）應可支撐 MVP |
 | Supabase | Free tier（500MB DB, 50K auth）夠用 |
 | Resend | Free tier（100 emails/日）夠用 |
 | LINE | Messaging API free tier（有月訊息量上限，需確認最新方案） |
-| **總計** | **~$20–30/月**（主要是 Claude API） |
+| **總計** | **~$5–15/月**（主要是 Claude API） |
 ---
 ## Monitoring & Logging
 MVP 階段最低限度：
@@ -178,7 +179,7 @@ MVP 階段最低限度：
 - [x] AI 對話（被動回覆）
 - [x] 目標提取 + 結構化儲存
 - [x] 主動每日提醒（Cron push）
-- [x] 基本 rate limiting
+- [ ] 基本 rate limiting
 - [x] Error handling + logging
 ### 排除（Phase 2+）
 - [ ] 付費機制 / Stripe 整合

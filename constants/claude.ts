@@ -4,7 +4,7 @@
 export const CLAUDE_MODEL = "claude-haiku-4-5-20251001" as const;
 
 /** Hard upper bound on tokens the model may produce per reply. */
-export const MAX_TOKENS = 1000 as const;
+export const MAX_TOKENS = 650 as const;
 
 /**
  * Number of past conversation turns loaded into the Claude context window.

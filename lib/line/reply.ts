@@ -17,7 +17,6 @@ export async function sendLineMessage(
   replyToken?: string
 ): Promise<void> {
   const client = getLineClient();
-  const messages = [{ type: "text", text } as const] as any; // Cast to any to bypass strict bot-sdk readonly check, or conform to Message[]
 
   if (replyToken) {
     try {

@@ -56,13 +56,13 @@ export default async function DashboardPage() {
         <CardHeader>
           <CardTitle className="text-xl">進行中的目標</CardTitle>
           <CardDescription>
-            在 LINE 聊天中告訴郭陳維你的目標，他會幫你追蹤。
+            在 LINE 聊天中告訴郭寶你的目標，他會幫你追蹤。
           </CardDescription>
         </CardHeader>
         <CardContent>
           {user.goals.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              還沒有目標。在 LINE 上跟郭陳維說說你想做什麼。
+              還沒有目標。在 LINE 上跟郭寶說說你想做什麼。
             </p>
           ) : (
             <ul className="space-y-3">

@@ -31,7 +31,7 @@ export default async function ActivatePage({ searchParams }: ActivatePageProps) 
         <CardHeader className="text-center">
           <CardTitle>你的啟動碼</CardTitle>
           <CardDescription>
-            複製下方啟動碼，在 LINE 上傳給郭陳維。
+            複製下方啟動碼，在 LINE 上傳給郭寶。
           </CardDescription>
         </CardHeader>
         <CardContent>

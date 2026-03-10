@@ -12,7 +12,7 @@ export default function DashboardLayout({
       <header className="border-b">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
           <Link href="/dashboard" className="text-lg font-bold">
-            郭陳維
+            郭寶
           </Link>
           <nav className="text-sm text-muted-foreground">
             Dashboard

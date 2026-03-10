@@ -1,20 +1,22 @@
-// Sends a user message to Claude with the 雞掰管家 system prompt and prior conversation history
+// Sends a user message to Claude with the 郭寶 system prompt and prior conversation history
 
-import { ConversationRole } from "@prisma/client";
+import { ConversationRole, GoalStatus } from "@prisma/client";
+import type { Tool, MessageParam, ToolResultBlockParam } from "@anthropic-ai/sdk/resources/messages.mjs";
 import { CLAUDE_MODEL, MAX_TOKENS } from "../../constants/claude";
-import { getActiveGoals } from "../db/goal";
+import { getActiveGoals, createGoal, updateGoal } from "../db/goal";
 import { getRecentMessages, saveMessage } from "../db/conversation";
 import { getAnthropic } from "./client";
 import { buildSystemPrompt } from "./system-prompt";
 
 const FALLBACK_REPLY = "吵死了，狗叫什麼。";
 
-import { GoalStatus } from "@prisma/client";
-import type { Tool } from "@anthropic-ai/sdk/resources/messages.mjs";
+/** Max rounds of tool use before we force a text reply. */
+const MAX_TOOL_ROUNDS = 3;
 
 const MANAGE_USER_GOAL_TOOL: Tool = {
   name: "manage_user_goal",
-  description: "Create, update, or complete a user's goal based on the conversation. Call this WHENEVER a user commits to a new goal, updates their progress, or finishes an existing goal. DO NOT use this for mere chit-chat.",
+  description:
+    "Create, update, or complete a user's goal based on the conversation. Call this WHENEVER a user commits to a new goal, updates their progress, or finishes an existing goal. DO NOT use this for mere chit-chat.",
   input_schema: {
     type: "object",
     properties: {
@@ -25,7 +27,8 @@ const MANAGE_USER_GOAL_TOOL: Tool = {
       },
       goal_id: {
         type: "string",
-        description: "REQUIRED for update, complete, or abandon. The exact ID of the goal (found in the system prompt). Omit for 'create'.",
+        description:
+          "REQUIRED for update, complete, or abandon. The exact ID of the goal (found in the system prompt). Omit for 'create'.",
       },
       title: {
         type: "string",
@@ -37,18 +40,83 @@ const MANAGE_USER_GOAL_TOOL: Tool = {
       },
       due_date: {
         type: "string",
-        description: "Optional ISO-8601 date string if the user specified a deadline (e.g., '2025-12-31T23:59:59Z').",
+        description:
+          "Optional ISO-8601 date string if the user specified a deadline (e.g., '2025-12-31T23:59:59Z').",
       },
     },
     required: ["action"],
   },
 };
 
+// ---------------------------------------------------------------------------
+// Tool execution
+// ---------------------------------------------------------------------------
+
+interface GoalToolArgs {
+  action: "create" | "update" | "complete" | "abandon";
+  goal_id?: string;
+  title?: string;
+  description?: string;
+  due_date?: string;
+}
+
+/**
+ * Execute a manage_user_goal tool call. Returns a short result string for the
+ * tool_result message sent back to Claude.
+ */
+async function executeGoalTool(
+  userId: string,
+  args: GoalToolArgs
+): Promise<string> {
+  if (args.action === "create" && args.title) {
+    await createGoal(
+      userId,
+      args.title,
+      args.description || undefined,
+      args.due_date ? new Date(args.due_date) : undefined
+    );
+    console.log(`[chat] Tool created goal: ${args.title}`);
+    return `Goal "${args.title}" created.`;
+  }
+
+  if (args.action !== "create" && args.goal_id) {
+    let status: GoalStatus | undefined;
+    if (args.action === "complete") status = GoalStatus.COMPLETED;
+    if (args.action === "abandon") status = GoalStatus.ABANDONED;
+    if (args.action === "update") status = GoalStatus.ACTIVE;
+
+    const result = await updateGoal(args.goal_id, userId, {
+      title: args.title || undefined,
+      description: args.description || undefined,
+      status,
+      due_date: args.due_date ? new Date(args.due_date) : undefined,
+    });
+
+    if (!result) {
+      console.warn(`[chat] Tool update failed — goal not found or not owned: ${args.goal_id}`);
+      return `Goal ${args.goal_id} not found or not owned by user.`;
+    }
+
+    console.log(`[chat] Tool updated goal: ${args.goal_id} -> ${args.action}`);
+    return `Goal ${args.goal_id} ${args.action}d.`;
+  }
+
+  return "Invalid tool arguments — missing required fields.";
+}
+
+// ---------------------------------------------------------------------------
+// Main chat function
+// ---------------------------------------------------------------------------
+
 /**
  * Send a user message to Claude and return the assistant reply.
  *
  * Context assembly order (per spec):
  *   systemPrompt (with goal injection) → conversationHistory → currentMessage
+ *
+ * When Claude calls the manage_user_goal tool, we execute it and send the
+ * result back in a follow-up API call so Claude can produce a proper text
+ * response that acknowledges the action.
  *
  * Always saves both the user message and the reply (even the fallback) to the
  * conversations table so history stays consistent.
@@ -67,71 +135,70 @@ export async function chat(
   const systemPrompt = buildSystemPrompt(goals);
 
   // 3. Map DB conversation rows to the Claude messages shape.
-  const historyMessages = history.map((msg) => ({
-    role:
-      msg.role === ConversationRole.USER
-        ? ("user" as const)
-        : ("assistant" as const),
-    content: msg.content,
-  }));
+  const messages: MessageParam[] = [
+    ...history.map((msg) => ({
+      role:
+        msg.role === ConversationRole.USER
+          ? ("user" as const)
+          : ("assistant" as const),
+      content: msg.content,
+    })),
+    { role: "user", content: userMessage },
+  ];
 
-  // 4. Call Claude — isolate the API call so we can catch failures cleanly.
+  // 4. Call Claude with tool-result loop.
   let assistantReply = FALLBACK_REPLY;
   try {
-    const response = await getAnthropic().messages.create({
-      model: CLAUDE_MODEL,
-      max_tokens: MAX_TOKENS,
-      system: systemPrompt,
-      messages: [
-        ...historyMessages,
-        { role: "user", content: userMessage },
-      ],
-      tools: [MANAGE_USER_GOAL_TOOL],
-    });
+    let round = 0;
 
-    // 5. Parse response blocks
-    for (const block of response.content) {
-      if (block.type === "text") {
-        assistantReply = block.text;
-      } else if (block.type === "tool_use" && block.name === "manage_user_goal") {
-        const args = block.input as {
-          action: "create" | "update" | "complete" | "abandon";
-          goal_id?: string;
-          title?: string;
-          description?: string;
-          due_date?: string;
-        };
+    while (round < MAX_TOOL_ROUNDS) {
+      round++;
 
-        try {
-          // Dynamic import of goal helpers to avoid circular deps if needed, or rely on top level
-          const { createGoal, updateGoal } = await import("../db/goal");
+      const response = await getAnthropic().messages.create({
+        model: CLAUDE_MODEL,
+        max_tokens: MAX_TOKENS,
+        system: systemPrompt,
+        messages,
+        tools: [MANAGE_USER_GOAL_TOOL],
+      });
 
-          if (args.action === "create" && args.title) {
-            await createGoal(
-              userId,
-              args.title,
-              args.description || undefined,
-              args.due_date ? new Date(args.due_date) : undefined
-            );
-            console.log(`[chat] Tool created goal: ${args.title}`);
-          } else if (args.action !== "create" && args.goal_id) {
-            let status: GoalStatus | undefined;
-            if (args.action === "complete") status = GoalStatus.COMPLETED;
-            if (args.action === "abandon") status = GoalStatus.ABANDONED;
-            if (args.action === "update") status = GoalStatus.ACTIVE;
-
-            await updateGoal(args.goal_id, userId, {
-              title: args.title || undefined,
-              description: args.description || undefined,
-              status,
-              due_date: args.due_date ? new Date(args.due_date) : undefined,
-            });
-            console.log(`[chat] Tool updated goal: ${args.goal_id} -> ${args.action}`);
-          }
-        } catch (dbErr) {
-          console.error("[chat] Tool use DB failure:", dbErr);
+      // Extract text from this response (may coexist with tool_use blocks).
+      for (const block of response.content) {
+        if (block.type === "text" && block.text.trim()) {
+          assistantReply = block.text;
         }
       }
+
+      // If the model finished naturally, we're done.
+      if (response.stop_reason !== "tool_use") {
+        break;
+      }
+
+      // Process all tool_use blocks and build tool_result messages.
+      const toolResults: ToolResultBlockParam[] = [];
+
+      for (const block of response.content) {
+        if (block.type === "tool_use" && block.name === "manage_user_goal") {
+          let resultText: string;
+          try {
+            resultText = await executeGoalTool(userId, block.input as GoalToolArgs);
+          } catch (dbErr) {
+            console.error("[chat] Tool use DB failure:", dbErr);
+            resultText = "Database error — tool execution failed.";
+          }
+
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: block.id,
+            content: resultText,
+          });
+        }
+      }
+
+      // Append the assistant's response (including tool_use blocks) and
+      // our tool results to the message chain for the next round.
+      messages.push({ role: "assistant", content: response.content });
+      messages.push({ role: "user", content: toolResults });
     }
   } catch (err) {
     // Log but never propagate — caller gets the fallback string.
@@ -139,7 +206,7 @@ export async function chat(
     assistantReply = FALLBACK_REPLY;
   }
 
-  // 6. Persist both turns regardless of whether Claude succeeded.
+  // 5. Persist both turns regardless of whether Claude succeeded.
   await Promise.all([
     saveMessage({ userId, role: ConversationRole.USER, content: userMessage }),
     saveMessage({

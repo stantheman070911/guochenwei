@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getAnthropic } from "@/lib/claude/client";
 import { buildSystemPrompt } from "@/lib/claude/system-prompt";
 import { CLAUDE_MODEL, MAX_TOKENS } from "@/constants/claude";
-import { saveMessage } from "@/lib/db/conversation";
+import { getRecentMessages, saveMessage } from "@/lib/db/conversation";
 import { sendLineMessage } from "@/lib/line/reply";
 
 export async function GET(request: Request) {
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const cronSecret = process.env.CRON_SECRET;
 
     // Standard Vercel Cron verification
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
         console.error("[cron/reminders] Unauthorized access attempt");
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -40,21 +40,24 @@ export async function GET(request: Request) {
         const reminderPromises = users.map(async (user) => {
             // 2. Build personalized system prompt
             const baseSystemPrompt = buildSystemPrompt(user.goals);
-
-            const currentTime = new Date().toLocaleString("zh-TW", { timeZone: "Asia/Taipei" });
             const promptAddon = `\n\n【排程提醒模式】\n你現在是主動發起對話。用戶並沒有傳訊息給你。請根據這些進行中的目標（如果有到期日或進度落後），給出嚴厲且簡短的提醒。立刻要求他交代今天或現在的進度。不要打招呼，直接刺進要害。150字以內。`;
-
-            // Inject standard prompt + proactive cron instructions
             const finalSystemPrompt = baseSystemPrompt + promptAddon;
 
             try {
-                // 3. Call Claude for each user
+                // 3. Fetch recent conversation history for personalized reminders
+                const recentMessages = await getRecentMessages(user.id);
+                const historyMessages = recentMessages.map((msg) => ({
+                    role: msg.role === "USER" ? ("user" as const) : ("assistant" as const),
+                    content: msg.content,
+                }));
+
+                // 4. Call Claude with history + a system trigger message
                 const response = await getAnthropic().messages.create({
                     model: CLAUDE_MODEL,
                     max_tokens: MAX_TOKENS,
                     system: finalSystemPrompt,
                     messages: [
-                        // Fake a prompt to provoke Claude into evaluating goals proactively
+                        ...historyMessages,
                         { role: "user", content: "（系統通知：這是排程推播時間。請主動發送督促提醒告訴我該做什麼了。）" }
                     ]
                 });
@@ -65,12 +68,12 @@ export async function GET(request: Request) {
                     pushText = block.text;
                 }
 
-                // 4. Send via LINE Push API
+                // 5. Send via LINE Push API
                 if (user.line_user_id) {
                     await sendLineMessage(user.line_user_id, pushText); // NO replyToken, forces fallback to Push API
                     console.log(`[cron/reminders] Sent push to user ${user.id}`);
 
-                    // 5. Save the assistant message to the DB so the user can interact cleanly
+                    // 6. Save the assistant message to the DB so the user can interact cleanly
                     await saveMessage({
                         userId: user.id,
                         role: ConversationRole.ASSISTANT,
