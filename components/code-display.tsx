@@ -3,7 +3,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function CodeDisplay({ code }: { code: string }) {
@@ -45,6 +45,19 @@ export function CodeDisplay({ code }: { code: string }) {
       <p className="text-xs text-muted-foreground">
         啟動碼也已寄到你的 email，24 小時內有效。
       </p>
+
+      {/* LINE CTA Link */}
+      <div className="pt-2 flex justify-center">
+        <a
+          href="https://lin.ee/3WNlqqk"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-green-600 transition-colors"
+        >
+          <MessageCircle className="h-4 w-4 text-green-500 group-hover:text-green-600" />
+          <span>點擊這裡成為郭寶朋友</span>
+        </a>
+      </div>
     </div>
   );
 }
