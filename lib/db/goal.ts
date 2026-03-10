@@ -21,7 +21,8 @@ export async function createGoal(
   userId: string,
   title: string,
   description?: string,
-  dueDate?: Date
+  dueDate?: Date,
+  remindAt?: Date
 ): Promise<Goal> {
   return prisma.goal.create({
     data: {
@@ -29,6 +30,7 @@ export async function createGoal(
       title,
       description,
       due_date: dueDate,
+      remind_at: remindAt,
       status: GoalStatus.ACTIVE,
     },
   });
@@ -45,6 +47,7 @@ export async function updateGoal(
     description?: string;
     status?: GoalStatus;
     due_date?: Date;
+    remind_at?: Date;
   }
 ): Promise<Goal | null> {
   // First ensure the goal belongs to the user

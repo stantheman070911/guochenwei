@@ -43,6 +43,10 @@ const MANAGE_USER_GOAL_TOOL: Tool = {
         description:
           "Optional ISO-8601 date string if the user specified a deadline (e.g., '2025-12-31T23:59:59Z').",
       },
+      remind_at: {
+        type: "string",
+        description: "REQUIRED if the user asks for a reminder at a specific time or duration (e.g., 'in 10 mins', 'at 9am'). Calculate the exact ISO-8601 timestamp based on the current time provided in the system prompt.",
+      },
     },
     required: ["action"],
   },
@@ -58,6 +62,7 @@ interface GoalToolArgs {
   title?: string;
   description?: string;
   due_date?: string;
+  remind_at?: string;
 }
 
 /**
@@ -69,13 +74,34 @@ async function executeGoalTool(
   args: GoalToolArgs
 ): Promise<string> {
   if (args.action === "create" && args.title) {
-    await createGoal(
+    const goal = await createGoal(
       userId,
       args.title,
       args.description || undefined,
-      args.due_date ? new Date(args.due_date) : undefined
+      args.due_date ? new Date(args.due_date) : undefined,
+      args.remind_at ? new Date(args.remind_at) : undefined
     );
     console.log(`[chat] Tool created goal: ${args.title}`);
+
+    if (args.remind_at) {
+      const remindTime = new Date(args.remind_at);
+      try {
+        const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://your-domain.com"}/api/line/push-reminder`;
+        await fetch(`https://qstash.upstash.io/v2/publish/${webhookUrl}`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.QSTASH_TOKEN}`,
+            "Upstash-Not-Before": String(Math.floor(remindTime.getTime() / 1000)),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ userId: userId, goalId: goal.id })
+        });
+        console.log(`[chat] Scheduled QStash reminder for goal ${goal.id} at ${args.remind_at}`);
+      } catch (e) {
+        console.error("[chat] Failed to schedule QStash reminder:", e);
+      }
+    }
+
     return `Goal "${args.title}" created.`;
   }
 
@@ -90,11 +116,31 @@ async function executeGoalTool(
       description: args.description || undefined,
       status,
       due_date: args.due_date ? new Date(args.due_date) : undefined,
+      remind_at: args.remind_at ? new Date(args.remind_at) : undefined,
     });
 
     if (!result) {
       console.warn(`[chat] Tool update failed — goal not found or not owned: ${args.goal_id}`);
       return `Goal ${args.goal_id} not found or not owned by user.`;
+    }
+
+    if (args.remind_at) {
+      const remindTime = new Date(args.remind_at);
+      try {
+        const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://your-domain.com"}/api/line/push-reminder`;
+        await fetch(`https://qstash.upstash.io/v2/publish/${webhookUrl}`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.QSTASH_TOKEN}`,
+            "Upstash-Not-Before": String(Math.floor(remindTime.getTime() / 1000)),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ userId: userId, goalId: result.id })
+        });
+        console.log(`[chat] Scheduled QStash reminder for goal ${result.id} at ${args.remind_at}`);
+      } catch (e) {
+        console.error("[chat] Failed to schedule QStash reminder:", e);
+      }
     }
 
     console.log(`[chat] Tool updated goal: ${args.goal_id} -> ${args.action}`);
