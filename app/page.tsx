@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RegisterForm } from "@/components/register-form";
+import { MessageCircle } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -15,6 +16,17 @@ export default function HomePage() {
         </CardHeader>
         <CardContent>
           <RegisterForm />
+          <div className="mt-6 flex justify-center">
+            <a
+              href="https://lin.ee/3WNlqqk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-green-600 transition-colors"
+            >
+              <MessageCircle className="h-4 w-4 text-green-500 group-hover:text-green-600" />
+              <span>點擊這裡成為郭寶朋友</span>
+            </a>
+          </div>
         </CardContent>
       </Card>
     </main>
