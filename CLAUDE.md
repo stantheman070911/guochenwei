@@ -13,7 +13,7 @@ LINE Official Account chatbot powered by Claude AI (郭陳維AI project).
 | Framework | Next.js 16 (App Router), TypeScript strict |
 | DB | PostgreSQL via Supabase, Prisma ORM |
 | Styling | Tailwind CSS + shadcn/ui |
-| AI | Anthropic Claude API (`claude-sonnet-4-20250514`) |
+| AI | Anthropic Claude API (`claude-haiku-4-5-20251001`) |
 | Messaging | LINE Messaging API |
 | Email | Resend |
 | Deploy | Vercel |

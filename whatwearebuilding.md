@@ -36,7 +36,7 @@ User → Registration Website → Supabase (PostgreSQL)
 | Styling | Tailwind CSS + shadcn/ui | 快速出 UI |
 | Database | PostgreSQL via Supabase | 免費 tier 夠 MVP 用，內建 auth 備用 |
 | ORM | Prisma | Type-safe query，schema migration 方便 |
-| AI | Anthropic Claude API (`claude-sonnet-4-20250514`) | 性價比最好的選擇 |
+| AI | Anthropic Claude API (`claude-haiku-4-5-20251001`) | 性價比最好的選擇 |
 | Hosting | Vercel | Serverless + Edge + Cron Jobs |
 | Email | Resend | 開發者體驗好，免費額度夠 |
 | LINE | LINE Messaging API | Official Account + Webhook |
