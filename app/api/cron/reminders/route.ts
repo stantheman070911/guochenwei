@@ -40,7 +40,7 @@ export async function GET(request: Request) {
         const reminderPromises = users.map(async (user) => {
             // 2. Build personalized system prompt
             const baseSystemPrompt = buildSystemPrompt(user.goals);
-            const promptAddon = `\n\n【排程提醒模式】\n你現在是主動發起對話。用戶並沒有傳訊息給你。請根據這些進行中的目標（如果有到期日或進度落後），給出嚴厲且簡短的提醒。立刻要求他交代今天或現在的進度。不要打招呼，直接刺進要害。150字以內。`;
+            const promptAddon = `\n\n【排程提醒模式】\n你現在是主動發起對話，用戶沒有傳訊息給你。根據他的目標噴他一句，問他進度。不要打招呼，直接開嗆。一句話，30字以內。`;
             const finalSystemPrompt = baseSystemPrompt + promptAddon;
 
             try {
@@ -63,7 +63,7 @@ export async function GET(request: Request) {
                 });
 
                 const block = response.content[0];
-                let pushText = "喂，你的目標進度呢？別給我裝死。";
+                let pushText = "幹你的目標呢";
                 if (block && block.type === "text") {
                     pushText = block.text;
                 }

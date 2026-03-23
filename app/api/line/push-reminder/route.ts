@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
         // 2. Build personalized system prompt just for this targeted reminder
         const baseSystemPrompt = buildSystemPrompt(user.goals);
-        const promptAddon = `\n\n【指定目標提醒模式】\n這是一個由你稍早設定的精確排程提醒。用戶針對目標（${targetGoal.title}）設定的提醒時間已到。立刻給出嚴厲且簡短的提醒，要求他現在就處理這個目標。不要廢話。150字以內。`;
+        const promptAddon = `\n\n【指定目標提醒模式】\n用戶之前叫你提醒他「${targetGoal.title}」，時間到了。用你的風格噴他一句，叫他現在就去做。一句話，30字以內。`;
         const finalSystemPrompt = baseSystemPrompt + promptAddon;
 
         // 3. Fetch recent conversation history
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
         });
 
         const block = response.content[0];
-        let pushText = `喂，目標「${targetGoal.title}」的時間到了，別給我裝死。`;
+        let pushText = `「${targetGoal.title}」時間到了還在混`;
         if (block && block.type === "text") {
             pushText = block.text;
         }
